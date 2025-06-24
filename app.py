@@ -78,9 +78,10 @@ def update_graph(selected_market):
 
     return fig
 
-# Expose callable for gunicorn (Render)
-application = app.server
-
-# Local server (optional)
+# Run server locally
 if __name__ == '__main__':
     app.run(debug=True)
+
+# For Gunicorn on Render
+application = app.server
+
