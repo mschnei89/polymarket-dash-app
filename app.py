@@ -1,75 +1,85 @@
-from dash import Dash, dcc, html, Input, Output
 import pandas as pd
-import plotly.graph_objs as go
+from dash import Dash, dcc, html, Input, Output
+import plotly.graph_objects as go
 
-# Load the data
-df = pd.read_csv("Fed_rate_panel_data.csv")
-
-# Parse dates
+# Load and prepare data
+df = pd.read_csv('Fed_rate_panel_data.csv')
 df['trade_date'] = pd.to_datetime(df['trade_date'])
 
-# Filter only "Yes" token outcomes
-df = df[df['token_outcome_name'].str.lower().str.startswith("yes")]
+# Filter for 'Yes-' token outcomes only
+df = df[df['token_outcome_name'].str.lower().str.startswith('yes')]
 
-# Initialize the app
+# Initialize Dash app
 app = Dash(__name__)
+server = app.server  # For Render deployment
 
 # Layout
 app.layout = html.Div([
-    html.H1("Polymarket Price Visualization", style={'textAlign': 'center'}),
-    html.Label("Select a Market:"),
+    html.H2("Polymarket Price & Volume Viewer"),
     dcc.Dropdown(
         id='market-dropdown',
-        options=[{'label': name, 'value': name} for name in sorted(df['event_market_name'].unique())],
-        value=df['event_market_name'].iloc[0]
+        options=[
+            {'label': name, 'value': name}
+            for name in sorted(df['event_market_name'].unique())
+        ],
+        value=sorted(df['event_market_name'].unique())[0]
     ),
-    dcc.Graph(id='line-chart')
+    dcc.Graph(id='price-volume-graph')
 ])
 
 # Callback
 @app.callback(
-    Output('line-chart', 'figure'),
+    Output('price-volume-graph', 'figure'),
     Input('market-dropdown', 'value')
 )
-def update_chart(selected_market):
-    filtered = df[df['event_market_name'] == selected_market]
-
+def update_graph(selected_market):
+    dff = df[df['event_market_name'] == selected_market]
+    
     fig = go.Figure()
 
-    for q in filtered['question'].unique():
-        sub = filtered[filtered['question'] == q]
+    # Add price lines for each question
+    for question in dff['question'].unique():
+        question_df = dff[dff['question'] == question]
         fig.add_trace(go.Scatter(
-            x=sub['trade_date'], y=sub['avg_price'],
-            mode='lines', name=q
+            x=question_df['trade_date'],
+            y=question_df['avg_price'],
+            mode='lines',
+            name=question,
+            yaxis='y1'
         ))
 
-    # Volume bar chart
+    # Add volume as secondary y-axis bars (transparent gray)
+    volume_df = (
+        dff.groupby('trade_date')['daily_volume'].sum().reset_index()
+    )
+
     fig.add_trace(go.Bar(
-        x=filtered['trade_date'],
-        y=filtered['daily_volume'],
+        x=volume_df['trade_date'],
+        y=volume_df['daily_volume'],
         name='Volume',
         yaxis='y2',
-        marker_color='gray',
+        marker=dict(color='gray'),
         opacity=0.6
     ))
 
     # Layout
     fig.update_layout(
-        title=f"Price Trends for '{selected_market}'",
-        yaxis=dict(title='Price', range=[0, 1]),
-        yaxis2=dict(title='Volume', overlaying='y', side='right'),
-        legend=dict(x=0, y=1.1, orientation="h"),
-        margin=dict(l=40, r=40, t=40, b=40)
+        title=f"Price & Volume: {selected_market}",
+        xaxis=dict(title='Date'),
+        yaxis=dict(title='Avg Price', side='left'),
+        yaxis2=dict(
+            title='Volume',
+            overlaying='y',
+            side='right',
+            showgrid=False
+        ),
+        legend=dict(x=0, y=1),
+        bargap=0.2,
+        height=600
     )
 
     return fig
 
-app.server = app.server  # for gunicorn
-
+# Run server locally
 if __name__ == '__main__':
-    app.run(debug=False)
-
-# Required for deployment
-server = app.server
-
-
+    app.run(debug=True)
