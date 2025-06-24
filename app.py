@@ -10,11 +10,11 @@ df['trade_date'] = pd.to_datetime(df['trade_date'])
 df = df[df['token_outcome_name'].str.lower().str.startswith('yes')]
 
 # Initialize Dash app
-app = Dash(__name__)
-server = app.server  # For Render deployment
+dash_app = Dash(__name__)
+app = dash_app.server  # gunicorn needs this
 
 # Layout
-app.layout = html.Div([
+dash_app.layout = html.Div([
     html.H2("Polymarket Price & Volume Viewer"),
     dcc.Dropdown(
         id='market-dropdown',
@@ -28,7 +28,7 @@ app.layout = html.Div([
 ])
 
 # Callback
-@app.callback(
+@dash_app.callback(
     Output('price-volume-graph', 'figure'),
     Input('market-dropdown', 'value')
 )
@@ -37,7 +37,6 @@ def update_graph(selected_market):
     
     fig = go.Figure()
 
-    # Add price lines for each question
     for question in dff['question'].unique():
         question_df = dff[dff['question'] == question]
         fig.add_trace(go.Scatter(
@@ -48,8 +47,9 @@ def update_graph(selected_market):
             yaxis='y1'
         ))
 
-    # Add volume bars using secondary y-axis
-    volume_df = dff.groupby('trade_date')['daily_volume'].sum().reset_index()
+    volume_df = (
+        dff.groupby('trade_date')['daily_volume'].sum().reset_index()
+    )
 
     fig.add_trace(go.Bar(
         x=volume_df['trade_date'],
@@ -60,7 +60,6 @@ def update_graph(selected_market):
         opacity=0.6
     ))
 
-    # Layout
     fig.update_layout(
         title=f"Price & Volume: {selected_market}",
         xaxis=dict(title='Date'),
@@ -78,10 +77,6 @@ def update_graph(selected_market):
 
     return fig
 
-# Run server locally
+# Local dev only
 if __name__ == '__main__':
-    app.run(debug=True)
-
-# For Gunicorn on Render
-application = app.server
-
+    dash_app.run_server(debug=True)
