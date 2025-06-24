@@ -48,10 +48,8 @@ def update_graph(selected_market):
             yaxis='y1'
         ))
 
-    # Add volume as secondary y-axis bars (transparent gray)
-    volume_df = (
-        dff.groupby('trade_date')['daily_volume'].sum().reset_index()
-    )
+    # Add volume bars using secondary y-axis
+    volume_df = dff.groupby('trade_date')['daily_volume'].sum().reset_index()
 
     fig.add_trace(go.Bar(
         x=volume_df['trade_date'],
@@ -80,6 +78,9 @@ def update_graph(selected_market):
 
     return fig
 
-# Run server locally
+# Expose callable for gunicorn (Render)
+application = app.server
+
+# Local server (optional)
 if __name__ == '__main__':
     app.run(debug=True)
