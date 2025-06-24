@@ -67,4 +67,9 @@ def update_chart(selected_market):
 app.server = app.server  # for gunicorn
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)
+
+# Required for deployment
+server = app.server
+
+
